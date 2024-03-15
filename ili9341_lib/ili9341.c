@@ -3,43 +3,51 @@
 volatile uint16_t LCD_W=ILI9341_TFTWIDTH;
 volatile uint16_t LCD_H=ILI9341_TFTHEIGHT;
 
-void ili9341_hard_init(void)	// init hardware
-{
-	rstddr = 0xFF;			// output for reset (конфигурация портов, все на выход) - это для ATMEGA, надо просто конфигурацию портов написать
-							// просто пояснения: DDRD – The Port D Data Direction Register (регистр направления передачи данных порта D)
-	rstport |=(1<<rst);		// pull high for normal operation (подтяжка RST к 1)
-	controlddr |= (1<<dc);	// D/C as output (Тоже направление передачи)
-}
+// void ili9341_hard_init(void)	// init hardware
+// {
+// 	rstddr = 0xFF;			// output for reset (конфигурация портов, все на выход) - это для ATMEGA, надо просто конфигурацию портов написать
+// 							// просто пояснения: DDRD – The Port D Data Direction Register (регистр направления передачи данных порта D)
+// 	rstport |=(1<<rst);		// pull high for normal operation (подтяжка RST к 1)
+// 	controlddr |= (1<<dc);	// D/C as output (Тоже направление передачи)
+// }
 
-void ili9341_spi_init(void)//set spi speed and settings 
-{
-	DDRB |=(1<<1)|(1<<2)|(1<<3)|(1<<5);//CS,SS,MOSI,SCK as output(although SS will be unused throughout the program)
-	SPCR=(1<<SPE)|(1<<MSTR);//mode 0,fosc/4
-	SPSR |=(1<<SPI2X);//doubling spi speed.i.e final spi speed-fosc/2
-	PORTB |=(1<<1);//cs off during startup
-}
+// void ili9341_spi_init(void)//set spi speed and settings 
+// {
+// 	DDRB |=(1<<1)|(1<<2)|(1<<3)|(1<<5);	// CS,SS,MOSI,SCK as output(although SS will be unused throughout the program)
+// 	SPCR=(1<<SPE)|(1<<MSTR);			// mode 0,fosc/4
+// 	SPSR |=(1<<SPI2X);					// doubling spi speed.i.e final spi speed-fosc/2
+// 	PORTB |=(1<<1);						// cs off during startup
+// }
 
-void ili9341_spi_send(unsigned char spi_data)//send spi data to display
-{
-	SPDR=spi_data;//move data into spdr
-	while(!(SPSR & (1<<SPIF)));//wait till the transmission is finished
-}
+// void ili9341_spi_send(unsigned char spi_data)//send spi data to display
+// {
+// 	SPDR=spi_data;//move data into spdr
+// 	while(!(SPSR & (1<<SPIF)));//wait till the transmission is finished
+// }
 
 void ili9341_writecommand8(uint8_t com)//command write
 {
-	controlport &=~((1<<dc)|(1<<cs));//dc and cs both low to send command
+//	controlport &=~((1<<dc)|(1<<cs));//dc and cs both low to send command
+	PORT_ResetBits(MDR_PORTB, PORT_Pin_6)		// dc = 0
+	PORT_ResetBits(MDR_PORTF, PORT_Pin_2)		// cs = 0
 	_delay_us(5);//little delay
-	ili9341_spi_send(com);
-	controlport |=(1<<cs);//pull high cs
+	// ili9341_spi_send(com);
+	SSP_SendData(MDR_SSP1, com);
+//	controlport |=(1<<cs);//pull high cs
+	PORT_SetBits(MDR_PORTB, PORT_Pin_6) 		// cs = 1
 }
 
 void ili9341_writedata8(uint8_t data)//data write
 {
-	controlport |=(1<<dc);//set dc high for data
-	_delay_us(1);//delay
-	controlport &=~(1<<cs);//set cs low for operation
-	ili9341_spi_send(data);
-	controlport |=(1<<cs);
+//	controlport |=(1<<dc);//set dc high for data
+	PORT_SetBits(MDR_PORTB, PORT_Pin_6)			// dc = 1
+//	_delay_us(1);//delay
+//	controlport &=~(1<<cs);//set cs low for operation
+	PORT_ResetBits(MDR_PORTF, PORT_Pin_2)		// cs = 0
+//	ili9341_spi_send(data);
+	SSP_SendData(MDR_SSP1, data);
+//	controlport |=(1<<cs);
+	PORT_SetBits(MDR_PORTF, PORT_Pin_2) 		// cs = 1
 }
 
 void ili9341_setaddress(uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2)//set coordinate for print or other function
